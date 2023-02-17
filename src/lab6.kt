@@ -60,9 +60,11 @@ interface Strategy {
     fun selectCardToDiscard()
     fun playNextCard(): Boolean
 }
-class BasicStrategy(val h: Hero) :Strategy{
+open class BasicStrategy(val h: Hero) :Strategy{
     override fun selectCardToDiscard() {
-        println("dummy message")
+        println("Selecting a card to discard...")
+        h.numOfCards = h.numOfCards -1
+        println("Current HP is " + h.hp +", now have " + h.numOfCards)
     }
 
     override fun playNextCard(): Boolean {
@@ -72,19 +74,29 @@ class BasicStrategy(val h: Hero) :Strategy{
         h.canAttackAgain = false
         return true
     }
-
-    fun playCards(){
-        while(h.numOfCards!=0&&playNextCard()){
-            playNextCard()
-        }
+}
+class GuanYuStrategy(h :Hero) :BasicStrategy(h){
+    override fun selectCardToDiscard() {
+        println("Selecting a card to discard...")
+        h.numOfCards = h.numOfCards -1
+        println("Current HP is " + h.hp +", now have " + h.numOfCards)
+        println("I want to keep the red cards.")
     }
-
-    fun discardCards(){
-        while(h.hp<h.numOfCards){
-            discardCards()
+}
+class DaQiaoStrategy(h :Hero) :BasicStrategy(h){
+    override fun playNextCard(): Boolean {
+        if(h.roleTitle=="Rebel"&&!(h as Da_Qiao).abandonornot&&h.numOfCards!=0) {
+            (h).abandon()
+            selectCardToDiscard()
+            (h).abandonornot = true;
+            println("I use a card to abandon the monarch")
         }
+        if(h.canAttackAgain) {
+            h.attack()
+        }else return false
+        h.canAttackAgain = false
+        return true
     }
-
 }
 
 abstract class Hero(var b: Role) : Role by b, Command{//--------------------------3 item
@@ -93,20 +105,19 @@ abstract class Hero(var b: Role) : Role by b, Command{//------------------------
     abstract var hp: Int;
     var numOfCards =4;
     open fun discardCards() {
-        print("Current HP is " + hp + " number of cards is " + numOfCards)
-        if(hp<numOfCards){
-            val numtodiscard = numOfCards - hp
-            println(", discarding " + numtodiscard + ", now have " + hp + ".\n")
-            numOfCards = numOfCards - numtodiscard
-        }else println(". No need to discard cards." + "\n")
+        while(hp<numOfCards){
+            reference.selectCardToDiscard()
+        }
+        if(hp>=numOfCards) println("Current HP is "+ hp + ". No need to discard cards.")
     }
-    fun drawCards() {
+    open fun drawCards() {
         println(name + "'s turn:")
         numOfCards = numOfCards + 2
         println("Drawing 2 cards.")
         println(name + " now has " + numOfCards + " cards.")
     }
-    fun attack(){
+    open fun attack(){
+        print(name + " is " + roleTitle + ", spent 1 card to attack")
         if(getEnemy() =="NonMonarchFactory"){
             println(" Rebel, then Traitors")
         } else if(getEnemy() =="MonarchFactory"){
@@ -114,10 +125,15 @@ abstract class Hero(var b: Role) : Role by b, Command{//------------------------
         }else println(" Rebel, then Monarch")
         numOfCards = numOfCards - 1
     }
-    abstract fun templateMethod();
+    open fun templateMethod() {
+        drawCards()
+        playCards()
+        discardCards()
+    }
     open fun playCards() {
-        print(name + " is " + roleTitle + ", spent 1 card to attack")
-        attack()
+        while(numOfCards!=0&&reference.playNextCard()){
+            reference.playNextCard()
+        }
     }
     open fun dodgeAttack() : Boolean{return false};
     open fun beingAttacked() {
@@ -128,9 +144,9 @@ abstract class Hero(var b: Role) : Role by b, Command{//------------------------
     fun setCommand(){willabandon = true}
     fun executeCommand():Boolean{return execute()}
     var canAttackAgain: Boolean= true;
-    lateinit var reference: String;
-    fun setStrategy(){
-        reference = "set reference"
+    lateinit var reference: Strategy;
+    fun setStrategy(s :Strategy){
+        reference = s;
     }
 }
 abstract class MonarchHero(b: Monarch) : Hero (b), Publisher by b{
@@ -223,11 +239,6 @@ class Cao_Cao(b: Monarch) : MonarchHero(b) {//1
     fun setNext(h: Handler){
         nexthandler = h
     }
-    override fun templateMethod() {
-        drawCards()
-        playCards()
-        discardCards()
-    }
 }
 class Liu_Bei(b: Monarch) : MonarchHero(b) {//2
 
@@ -240,14 +251,8 @@ class Liu_Bei(b: Monarch) : MonarchHero(b) {//2
             (b as Publisher).notifySubscribers(false , hp, numOfCards)
         }
     }
-    override fun templateMethod() {
-        drawCards()
-        playCards()
-        discardCards()
-    }
 }
 class Sun_Quan(b: Monarch) : MonarchHero(b) {//3
-
     override var name = "Sun Quan"
 
     override fun beingAttacked() {
@@ -257,37 +262,35 @@ class Sun_Quan(b: Monarch) : MonarchHero(b) {//3
             (b as Publisher).notifySubscribers(false , hp, numOfCards)
         }
     }
-    override fun templateMethod() {
-        drawCards()
-        playCards()
-        discardCards()
-    }
 }
 class Zhang_Fei(b: Role) : WarriorHero(b) {//4
-
     override var name = "Zhang Fei"
 
-    override fun playCards() {
-        print(name + " is " + roleTitle + ", spent 1 card to attack")
+    override fun attack(){
         while(numOfCards!=0) {
             print(name + "is " + roleTitle + ", spent 1 card to attack")
-            attack()
+            if(getEnemy() =="NonMonarchFactory"){
+                println(" Rebel, then Traitors")
+            } else if(getEnemy() =="MonarchFactory"){
+                println(" Monarch, then Minister")
+            }else println(" Rebel, then Monarch")
+            numOfCards = numOfCards - 1
+            canAttackAgain = true
         }
     }
     override fun templateMethod() {
         drawCards()
-        playCards()
+        attack()
         discardCards()
     }
 }
 class Zhou_Yu(b: Role) : AdvisorHero(b) {//5
-
     override var name = "Zhou Yu"
-
-    override fun templateMethod() {
-        drawCards()
-        playCards()
-        discardCards()
+    override fun drawCards() {
+        println(name + "'s turn:")
+        numOfCards = numOfCards + 3
+        println("I'm hansom drawing 3 cards.")
+        println(name + " now has " + numOfCards + " cards.")
     }
 }
 class Diao_Chan(b: Role) : AdvisorHero(b) {//7
@@ -304,35 +307,44 @@ class Diao_Chan(b: Role) : AdvisorHero(b) {//7
         numOfCards = numOfCards +1;
         println("I can draw one more card, now I have " + numOfCards + "\n")
     }
-    override fun templateMethod() {
-        drawCards()
-        playCards()
-        discardCards()
-    }
 }
 class Si_maYi(b: Role) : WeiHero(b) {//7
     override var hp: Int = 3
     override var maxHP: Int =3
     override var name = "Si maYi"
 
-    override fun templateMethod() {
-        drawCards()
-        playCards()
-        discardCards()
-    }
 }
 class Xu_Chu(b: Role) : WeiHero(b) {//8
-
     override var hp: Int = 4
     override var maxHP: Int =4
     override var name = "Xu Chu"
 
-    override fun templateMethod() {
-        drawCards()
-        playCards()
-        discardCards()
+}
+class Guan_Yu(b: Role) : WarriorHero(b) {//3
+    override var name = "Guan Yu"
+
+    override fun beingAttacked() {
+        hp--
+        println(name + " got attacked, he is unable to dodge attack, current hp is " + hp + ".")
+        if (b is Publisher) {
+            (b as Publisher).notifySubscribers(false , hp, numOfCards)
+        }
     }
 }
+class Da_Qiao(b: Role) : AdvisorHero(b){
+    override val name = "Da Qiao"
+    var abandonornot: Boolean = false
+    fun abandon(){
+        (MonarchFactory.monarch).setCommand()
+    }
+    override fun drawCards() {
+        println(name + "'s turn:")
+        numOfCards = numOfCards + 2
+        println("Drawing 2 cards.")
+        println(name + " now has " + numOfCards + " cards.")
+    }
+}
+
 
 interface GameObjectFactory{
     fun getRandomRole(): Role;
@@ -352,9 +364,11 @@ object MonarchFactory: GameObjectFactory {
             2->Cao_Cao(getRandomRole())
             else ->Sun_Quan(getRandomRole())
         }
+        monarch.setStrategy(BasicStrategy(monarch))
         return monarch
     }
-}object NonMonarchFactory: GameObjectFactory{
+}
+object NonMonarchFactory: GameObjectFactory{
     override fun getRandomRole(): Role{
         var x: Int = Random.nextInt(0, 3)//前闭后开--------------------------------------
         when(x){
@@ -366,14 +380,23 @@ object MonarchFactory: GameObjectFactory {
 
     override fun getRandomHero(): Hero{
         lateinit var hero : Hero
-        var x: Int = Random.nextInt(0, 5)//前闭后开--------------------------------------
+        var x: Int = Random.nextInt(0, 7)//前闭后开--------------------------------------
         hero = when(x){
             1-> Zhang_Fei(getRandomRole())
             2-> Zhou_Yu(getRandomRole())
             3-> Diao_Chan(getRandomRole())
             4-> Si_maYi(getRandomRole())
-            else-> Xu_Chu(getRandomRole())
+            5-> Xu_Chu(getRandomRole())
+            6-> Guan_Yu(getRandomRole())
+            else-> Da_Qiao(getRandomRole())
         }
+        if(hero.name == "Da Qiao"){
+            hero.setStrategy(DaQiaoStrategy(hero))
+        }else if(hero.name == "Guan Yu"){
+            hero.setStrategy(GuanYuStrategy(hero))
+            }else {
+            hero.setStrategy(BasicStrategy(hero))
+            }
         return hero
     }
 }
@@ -388,7 +411,6 @@ object heroes{
 
     init {
         heroes.add(setmonarch)
-        heroes[0].setCommand()
 
         for (i in 1..5) {
             randomrole = NonMonarchFactory.getRandomHero()
@@ -441,16 +463,19 @@ fun main() {
                         x.drawCards()
                         println(x.name + " 's round got abandoned.")
                         x.discardCards()
+                        println("\n")
                         continue
                     }else x.beingAttacked()
                     if (x.hp == 0) {
                         println(x.name + "is dead" + "\n")
+                        println("\n")
                         continue
                     }
                     x.drawCards()
                     println("Abandon card voided.")
                     x.playCards()
                     x.discardCards()
+                    println("\n")
                     continue
                 }
 
@@ -460,6 +485,7 @@ fun main() {
                     continue
                 }
                 x.templateMethod()
+                println("\n")
             }
         }
     }
