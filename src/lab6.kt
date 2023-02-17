@@ -1,3 +1,4 @@
+import kotlin.math.max
 import kotlin.random.Random
 
 interface Role {//---------------------1 interface
@@ -59,8 +60,18 @@ interface Command{
 interface Strategy {
     fun selectCardToDiscard()
     fun playNextCard(): Boolean
+    var state: State?
+    fun changeState(s:State){
+        state = s
+    }
 }
+interface State{
+    fun playHealCard(): Boolean
+    fun recommendCardToDiscard()
+}
+
 open class BasicStrategy(val h: Hero) :Strategy{
+    override var state: State?=null
     override fun selectCardToDiscard() {
         println("Selecting a card to discard...")
         h.numOfCards = h.numOfCards -1
@@ -80,7 +91,7 @@ class GuanYuStrategy(h :Hero) :BasicStrategy(h){
         println("Selecting a card to discard...")
         h.numOfCards = h.numOfCards -1
         println("Current HP is " + h.hp +", now have " + h.numOfCards)
-        println("I want to keep the red cards.")
+        println("I prefer red cards.")
     }
 }
 class DaQiaoStrategy(h :Hero) :BasicStrategy(h){
@@ -96,6 +107,31 @@ class DaQiaoStrategy(h :Hero) :BasicStrategy(h){
         }else return false
         h.canAttackAgain = false
         return true
+    }
+}
+class HealthyState: State{
+    lateinit var h:Hero
+    lateinit var reference: Strategy;
+
+    fun setStrategy(s :Strategy){
+        reference = s;
+    }
+    override fun playHealCard(): Boolean {
+        if(h.hp<h.maxHP&&h.hasHealCard&&h.numOfCards!=0) {
+            h.heal()
+            return true
+        }else return false
+    }
+    override fun recommendCardToDiscard() {
+        println("Keep dodge card instead of attack card")
+    }
+
+    companion object {
+        fun createHealthStateWithStrategy(strategy: Strategy) : State {
+            var hs = HealthyState()
+            hs.setStrategy(strategy)
+            return hs
+        }
     }
 }
 
@@ -139,6 +175,9 @@ abstract class Hero(var b: Role) : Role by b, Command{//------------------------
     open fun beingAttacked() {
         hp--
         println(name + " got attacked, he is unable to dodge attack, current hp is " + hp + ".")
+        if(hp<=2){
+            reference.changeState(HealthyState())
+        }
     }
     var willabandon: Boolean = false;
     fun setCommand(){willabandon = true}
@@ -147,6 +186,11 @@ abstract class Hero(var b: Role) : Role by b, Command{//------------------------
     lateinit var reference: Strategy;
     fun setStrategy(s :Strategy){
         reference = s;
+    }
+    var hasHealCard: Boolean = true;
+    fun heal(){
+        numOfCards=numOfCards-1
+        hasHealCard = false
     }
 }
 abstract class MonarchHero(b: Monarch) : Hero (b), Publisher by b{
@@ -365,6 +409,8 @@ object MonarchFactory: GameObjectFactory {
             else ->Sun_Quan(getRandomRole())
         }
         monarch.setStrategy(BasicStrategy(monarch))
+        HealthyState.createHealthStateWithStrategy(monarch.reference)
+//        monarch.reference.changeState(State)
         return monarch
     }
 }
@@ -397,6 +443,7 @@ object NonMonarchFactory: GameObjectFactory{
             }else {
             hero.setStrategy(BasicStrategy(hero))
             }
+        HealthyState.createHealthStateWithStrategy(hero.reference)
         return hero
     }
 }
