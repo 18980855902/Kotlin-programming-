@@ -57,7 +57,7 @@ interface Command{
         return Random.nextBoolean()==false
     }
 }
-interface Strategy {
+interface Strategy{
     fun selectCardToDiscard()
     fun playNextCard(): Boolean
     var state: State?
@@ -74,6 +74,7 @@ open class BasicStrategy(val h: Hero) :Strategy{
     override var state: State?=null
     override fun selectCardToDiscard() {
         println("Selecting a card to discard...")
+        state?.recommendCardToDiscard()
         h.numOfCards = h.numOfCards -1
         println("Current HP is " + h.hp +", now have " + h.numOfCards)
     }
@@ -89,9 +90,10 @@ open class BasicStrategy(val h: Hero) :Strategy{
 class GuanYuStrategy(h :Hero) :BasicStrategy(h){
     override fun selectCardToDiscard() {
         println("Selecting a card to discard...")
+        state?.recommendCardToDiscard()
+        println("I prefer red cards.")
         h.numOfCards = h.numOfCards -1
         println("Current HP is " + h.hp +", now have " + h.numOfCards)
-        println("I prefer red cards.")
     }
 }
 class DaQiaoStrategy(h :Hero) :BasicStrategy(h){
@@ -123,7 +125,7 @@ class HealthyState: State{
         }else return false
     }
     override fun recommendCardToDiscard() {
-        println("Keep dodge card instead of attack card")
+        println("Healthy, keep dodge card instead of attack card")
     }
 
     companion object {
@@ -131,6 +133,31 @@ class HealthyState: State{
             var hs = HealthyState()
             hs.setStrategy(strategy)
             return hs
+        }
+    }
+}
+class UnhealthyState: State{
+    lateinit var h:Hero
+    lateinit var reference: Strategy;
+
+    fun setStrategy(s :Strategy){
+        reference = s;
+    }
+    override fun playHealCard(): Boolean {
+        if(h.hp<h.maxHP&&h.hasHealCard&&h.numOfCards!=0) {
+            h.heal()
+            return true
+        }else return false
+    }
+    override fun recommendCardToDiscard() {
+        println("Not healthy, keep attack card instead of dodge card")
+    }
+
+    companion object {
+        fun createUnhealthStateWithStrategy(strategy: Strategy) : State {
+            var uhs = UnhealthyState()
+            uhs.setStrategy(strategy)
+            return uhs
         }
     }
 }
@@ -410,7 +437,7 @@ object MonarchFactory: GameObjectFactory {
         }
         monarch.setStrategy(BasicStrategy(monarch))
         HealthyState.createHealthStateWithStrategy(monarch.reference)
-//        monarch.reference.changeState(State)
+        monarch.reference.changeState(HealthyState())
         return monarch
     }
 }
@@ -507,6 +534,12 @@ fun main() {
                             println(x.name + "is dead" + "\n")
                             continue
                         }
+                        if (x.hp >= 3) {
+                            HealthyState.createHealthStateWithStrategy(x.reference);
+                        }
+                        if(x.hp <3){
+                            UnhealthyState.createUnhealthStateWithStrategy(x.reference);
+                        }
                         x.drawCards()
                         println(x.name + " 's round got abandoned.")
                         x.discardCards()
@@ -517,6 +550,12 @@ fun main() {
                         println(x.name + "is dead" + "\n")
                         println("\n")
                         continue
+                    }
+                    if (x.hp >= 3) {
+                        HealthyState.createHealthStateWithStrategy(x.reference);
+                    }
+                    if(x.hp <3){
+                        UnhealthyState.createUnhealthStateWithStrategy(x.reference);
                     }
                     x.drawCards()
                     println("Abandon card voided.")
@@ -530,6 +569,12 @@ fun main() {
                 if (x.hp == 0) {
                     println(x.name + "is dead" + "\n")
                     continue
+                }
+                if (x.hp >= 3) {
+                    HealthyState.createHealthStateWithStrategy(x.reference);
+                }
+                if(x.hp <3){
+                    UnhealthyState.createUnhealthStateWithStrategy(x.reference);
                 }
                 x.templateMethod()
                 println("\n")
