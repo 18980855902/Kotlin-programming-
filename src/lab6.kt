@@ -65,11 +65,6 @@ interface Strategy{
         state = s
     }
 }
-interface State{
-    fun playHealCard(): Boolean
-    fun recommendCardToDiscard()
-}
-
 open class BasicStrategy(val h: Hero) :Strategy{
     override var state: State?=null
     override fun selectCardToDiscard() {
@@ -111,6 +106,11 @@ class DaQiaoStrategy(h :Hero) :BasicStrategy(h){
         return true
     }
 }
+
+interface State{
+    fun playHealCard(): Boolean
+    fun recommendCardToDiscard()
+}
 class HealthyState: State{
     lateinit var h:Hero
     lateinit var reference: Strategy;
@@ -143,6 +143,7 @@ class UnhealthyState: State{
     fun setStrategy(s :Strategy){
         reference = s;
     }
+
     override fun playHealCard(): Boolean {
         if(h.hp<h.maxHP&&h.hasHealCard&&h.numOfCards!=0) {
             h.heal()
@@ -216,6 +217,7 @@ abstract class Hero(var b: Role) : Role by b, Command{//------------------------
     }
     var hasHealCard: Boolean = true;
     fun heal(){
+        println("Use the heal card.")
         numOfCards=numOfCards-1
         hasHealCard = false
     }
@@ -471,6 +473,7 @@ object NonMonarchFactory: GameObjectFactory{
             hero.setStrategy(BasicStrategy(hero))
             }
         HealthyState.createHealthStateWithStrategy(hero.reference)
+        hero.reference.changeState(HealthyState())
         return hero
     }
 }
@@ -523,6 +526,17 @@ fun main() {
         }
         return false
     }
+    fun changestrategy(x: Hero){
+        if (x.hp >= 3) {
+            HealthyState.createHealthStateWithStrategy(x.reference);
+            x.reference.changeState(HealthyState())
+        }
+        if(x.hp <3){
+            UnhealthyState.createUnhealthStateWithStrategy(x.reference);
+            x.reference.changeState(UnhealthyState())
+            x.heal()
+        }
+    }
     println(heroes.heroes[0].name + " being placed the Abandon card.")
     while(check(heroes.heroes)){
         for (x in heroes.heroes) {
@@ -534,12 +548,7 @@ fun main() {
                             println(x.name + "is dead" + "\n")
                             continue
                         }
-                        if (x.hp >= 3) {
-                            HealthyState.createHealthStateWithStrategy(x.reference);
-                        }
-                        if(x.hp <3){
-                            UnhealthyState.createUnhealthStateWithStrategy(x.reference);
-                        }
+                        changestrategy(x)
                         x.drawCards()
                         println(x.name + " 's round got abandoned.")
                         x.discardCards()
@@ -551,12 +560,7 @@ fun main() {
                         println("\n")
                         continue
                     }
-                    if (x.hp >= 3) {
-                        HealthyState.createHealthStateWithStrategy(x.reference);
-                    }
-                    if(x.hp <3){
-                        UnhealthyState.createUnhealthStateWithStrategy(x.reference);
-                    }
+                    changestrategy(x)
                     x.drawCards()
                     println("Abandon card voided.")
                     x.playCards()
@@ -570,12 +574,7 @@ fun main() {
                     println(x.name + "is dead" + "\n")
                     continue
                 }
-                if (x.hp >= 3) {
-                    HealthyState.createHealthStateWithStrategy(x.reference);
-                }
-                if(x.hp <3){
-                    UnhealthyState.createUnhealthStateWithStrategy(x.reference);
-                }
+                changestrategy(x)
                 x.templateMethod()
                 println("\n")
             }
